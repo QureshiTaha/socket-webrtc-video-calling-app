@@ -9,6 +9,11 @@ const NotificationPlayer = document.getElementById("notificationPlayer");
 const DisconnectedPlayer = document.getElementById("disconnectedPlayer");
 const answerButton = document.getElementById("answerCall");
 const declineButton = document.getElementById("declineCall");
+const logout = document.getElementById("logout");
+const usernameContainer = document.querySelector(".username-input");
+const localVideoContainer = document.getElementById("local-video-container");
+const remoteVideoContainer = document.getElementById("remote-video-container");
+
 const socket = io();
 let localStream;
 let caller = [];
@@ -26,22 +31,19 @@ const PeerConnection = (function () {
       ],
     };
     peerConnection = new RTCPeerConnection(config);
-    // add local stream to peer connection
     localStream.getTracks().forEach((track) => {
       peerConnection.addTrack(track, localStream);
     });
-    // listen to remote stream and add to peer connection
     peerConnection.ontrack = function (event) {
       console.log("event", event.streams);
       const Rvideo = document.createElement("video");
       Rvideo.setAttribute("playsinline", true);
-      //   Rvideo.setAttribute("muted", true);
       Rvideo.setAttribute("autoplay", true);
       Rvideo.setAttribute("id", `${event.streams[0].id}`);
       Rvideo.classList.add("remote-video");
-      container = document.getElementById("remote-video-container");
+
       if (!document.getElementById(`${event.streams[0].id}`)) {
-        container.appendChild(Rvideo);
+        remoteVideoContainer.appendChild(Rvideo);
       }
 
       Rvideo.srcObject = event.streams[0];
@@ -70,11 +72,9 @@ const PeerConnection = (function () {
 createUserBtn.addEventListener("click", async (e) => {
   if (username.value !== "") {
     await createLocalVideo();
-
-    const usernameContainer = document.querySelector(".username-input");
-
     socket.emit("join-user", username.value);
-    usernameContainer.style.display = "none";
+    usernameContainer.classList.add("d-none");
+    logout.classList.remove("d-none");
   }
 });
 endCallBtn.addEventListener("click", (e) => {
@@ -83,31 +83,7 @@ endCallBtn.addEventListener("click", (e) => {
 
 // handle socket events
 socket.on("joined", (allusers) => {
-  const createUsersHtml = () => {
-    allusersHtml.innerHTML = "";
-
-    for (const user in allusers) {
-      const li = document.createElement("li");
-      li.textContent = `${user} ${user === username.value ? "(You)" : ""}`;
-
-      if (user !== username.value) {
-        const button = document.createElement("button");
-        button.classList.add("call-btn");
-        button.addEventListener("click", (e) => {
-          startCall(user);
-        });
-        const img = document.createElement("img");
-        img.setAttribute("src", "/images/phone.png");
-        img.setAttribute("width", 20);
-        button.appendChild(img);
-        li.appendChild(button);
-      }
-
-      allusersHtml.appendChild(li);
-    }
-  };
-
-  createUsersHtml();
+  createUsersHtml(allusers);
 });
 
 socket.on("offer", async ({ from, to, offer }) => {
@@ -129,7 +105,7 @@ socket.on("offer", async ({ from, to, offer }) => {
 socket.on("answer", async ({ from, to, answer }) => {
   const pc = PeerConnection.getInstance();
   await pc.setRemoteDescription(answer);
-  endCallBtn.style.display = "block";
+  endCallBtn.classList.remove("d-none");
   socket.emit("end-call", { from, to });
   caller = [from, to];
 });
@@ -139,36 +115,39 @@ socket.on("icecandidate", async (candidate) => {
   await pc.addIceCandidate(new RTCIceCandidate(candidate));
 });
 socket.on("end-call", ({ from, to }) => {
-  endCallBtn.style.display = "block";
+  endCallBtn.classList.remove("d-none");
 });
 socket.on("call-ended", (caller) => {
   DisconnectedPlayer.play();
   endCall();
 });
-socket.on("user-disconnected", (username) => {
-  console.log(`${username} has disconnected.`);
-
-  // Remove the user from the displayed user list
-  const userListItems = document.querySelectorAll("li");
-  userListItems.forEach((item) => {
-    if (item.textContent.includes(username)) {
-      item.remove();
-    }
-  });
+socket.on("disconnected", (allusers) => {
+  console.log("disconnected", { username });
+  createUsersHtml(allusers);
 });
 
-// Function to handle user disconnection
-const handleUserDisconnect = async () => {
-  console.log("user-disconnected");
-  await socket.emit("user-disconnected", username.value);
-};
-
 // // Add an event listener for the beforeunload event
-// window.addEventListener("beforeunload", async (event) => {
-//   await handleUserDisconnect();
-//   event.preventDefault();
-// });
+window.addEventListener("beforeunload", async (event) => {
+  await socket.emit("disconnected", username.value);
+  event.preventDefault();
+});
 
+logout.addEventListener("click", async (e) => {
+  console.log("disconnect");
+  await socket.emit("disconnected", username.value);
+  logout.classList.add("d-none");
+  usernameContainer.classList.remove("d-none");
+  allusersHtml.innerHTML = "";
+  localVideoContainer.innerHTML = "";
+  videoToggle.children[0].classList.add("fa-video-slash");
+  videoToggle.children[0].classList.remove("fa-video");
+  localStream.getVideoTracks()[0].enabled = false;
+});
+
+window.addEventListener("beforeunload", async (event) => {
+  await handleUserDisconnect();
+  event.preventDefault();
+});
 // Answer Call
 const answerCall = async ({ from, to, offer }) => {
   const pc = PeerConnection.getInstance();
@@ -199,10 +178,11 @@ const endCall = () => {
   const pc = PeerConnection.getInstance();
   if (pc) {
     pc.close();
-    endCallBtn.style.display = "none";
+    endCallBtn.classList.add("d-none");
     declineButton.classList.add("d-none");
     answerButton.classList.add("d-none");
     document.querySelectorAll(".remote-video").forEach((el) => el.remove());
+    console.log("call ended by ");
   }
 };
 
@@ -216,14 +196,11 @@ const startMyVideo = async (video) => {
     console.log({ stream });
     localStream = stream;
     video.srcObject = stream;
-
     video.muted = true;
     video.setAttribute("playsinline", true);
     video.setAttribute("autoplay", true);
     video.setAttribute("muted", true);
-
     videoToggle.children[0].classList.add("fa-video-slash");
-
     return true;
   } catch (error) {
     console.log({ error });
@@ -231,6 +208,33 @@ const startMyVideo = async (video) => {
   }
 };
 
+const createUsersHtml = (allusers) => {
+  allusersHtml.innerHTML = "";
+
+  for (const user in allusers) {
+    const li = document.createElement("li");
+    li.setAttribute("id", user);
+    li.textContent = `${user} ${user === username.value ? "(You)" : ""}`;
+
+    if (user !== username.value) {
+      const button = document.createElement("button");
+      button.classList.add("call-btn");
+      button.addEventListener("click", (e) => {
+        startCall(user);
+      });
+      const img = document.createElement("img");
+      img.setAttribute("src", "/images/phone.png");
+      img.setAttribute("width", 20);
+      button.appendChild(img);
+      li.appendChild(button);
+      Userstatus = document.createElement("span");
+      Userstatus.classList.add("userStatus");
+      Userstatus.classList.add(allusers[user].status);
+      li.appendChild(Userstatus);
+    }
+    allusersHtml.appendChild(li);
+  }
+};
 // Create Local Video
 const createLocalVideo = async () => {
   try {
@@ -240,7 +244,6 @@ const createLocalVideo = async () => {
     video.setAttribute("autoplay", true);
     video.setAttribute("id", "localVideo");
     container = document.getElementById("local-video-container");
-    // container.setAttribute("draggable", true);
     container.appendChild(video);
     return startMyVideo(video);
   } catch (error) {

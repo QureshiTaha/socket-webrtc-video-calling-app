@@ -35,6 +35,7 @@ ul li {
 .main-container {
   height: 100vh;
   display: flex;
+  overflow: hidden;
 }
 
 /* || styling caller list - side menu*/
@@ -50,6 +51,7 @@ ul li {
 }
 .caller-list > li {
   display: flex;
+  position: relative;
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
@@ -70,6 +72,26 @@ ul li {
   color: black;
 }
 
+/* || styling user status */
+.userStatus {
+  height: 15px;
+  width: 15px;
+  border-radius: 50%;
+  position: absolute;
+  left: -7px;
+}
+
+.userStatus.offline {
+  background-color: #F00;
+}
+
+.userStatus.online {
+  background-color: #00C100;
+}
+.userStatus.away,
+.userStatus.busy {
+  background-color: #FF0;
+}
 /* || video call container styling */
 .video-call-container {
   flex: 1;
@@ -83,7 +105,7 @@ ul li {
 .remote-video {
   flex: 1;
   width: auto;
-  min-height: 40rem;
+  min-height: 70rem;
   max-height: 50rem;
   background-color: transparent;
   background-size: cover;
@@ -143,16 +165,18 @@ ul li {
 
 .username-input {
   margin: 2rem 0;
+  position: absolute;
 }
 .username-input input {
   width: 30rem;
   height: 4rem;
-  padding: 5px;
+  padding: 10px;
   outline: none;
   border: none;
   box-shadow: inset 0 0 15px 15px rgba(0, 0, 0, 0.2);
   font-family: "Lora", sans-serif;
   font-weight: 500;
+  font-size: large;
 }
 .username-input input::placeholder {
   font-family: "Lora", serif;
@@ -169,6 +193,7 @@ ul li {
   letter-spacing: 1px;
   cursor: pointer;
   text-transform: uppercase;
+  font-size: large;
 }
 
 #video-toggle i,
@@ -281,6 +306,34 @@ button.jumping {
   position: fixed;
   background-color: transparent;
   padding: 2rem 0;
+}
+
+
+
+/* responsive below 1024 */
+@media screen and (max-width: 1024px) {
+  .local-video video{
+    height: 12rem;
+  }
+
+  .remote-video video{
+    width: 100vw;
+    height: 100vh;
+    border: unset;
+    min-height: unset;
+    max-height: unset;
+  }
+  .remote-video{
+    max-height: unset;
+  }
+  .local-video{
+    bottom: unset;
+    top: 1rem;
+    right: 1rem;
+  }
+  .widget-container{
+    background: transparent;
+  }
 }
 
 @media screen and (max-height: 450px) {
