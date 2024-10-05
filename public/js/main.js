@@ -17,6 +17,7 @@ const remoteVideoContainer = document.getElementById("remote-video-container");
 const socket = io();
 let localStream;
 let caller = [];
+let onCall = false;
 
 // Single Method for peer connection
 const PeerConnection = (function () {
@@ -71,7 +72,25 @@ const PeerConnection = (function () {
 // handle browser events
 createUserBtn.addEventListener("click", async (e) => {
   if (username.value !== "") {
-    await createLocalVideo();
+    const video = document.createElement("video");
+    video.setAttribute("playsinline", true);
+    video.setAttribute("muted", true);
+    video.setAttribute("autoplay", true);
+    video.setAttribute("id", "localVideo");
+    container = document.getElementById("local-video-container");
+    container.appendChild(video);
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: true,
+    });
+    console.log({ stream });
+    localStream = stream;
+    video.srcObject = stream;
+    video.muted = true;
+    video.setAttribute("playsinline", true);
+    video.setAttribute("autoplay", true);
+    video.setAttribute("muted", true);
+    videoToggle.children[0].classList.add("fa-video-slash");
     socket.emit("join-user", username.value);
     usernameContainer.classList.add("d-none");
     logout.classList.remove("d-none");
@@ -80,20 +99,55 @@ createUserBtn.addEventListener("click", async (e) => {
 endCallBtn.addEventListener("click", (e) => {
   socket.emit("call-ended", caller);
 });
+// Add an event listener for the beforeunload event
+window.addEventListener("beforeunload", async (event) => {
+  await socket.emit("disconnected", username.value);
+  event.preventDefault();
+});
+logout.addEventListener("click", async (e) => {
+  console.log("disconnect");
+  await socket.emit("disconnected", username.value);
+  logout.classList.add("d-none");
+  usernameContainer.classList.remove("d-none");
+  allusersHtml.innerHTML = "";
+  localVideoContainer.innerHTML = "";
+  videoToggle.children[0].classList.add("fa-video-slash");
+  videoToggle.children[0].classList.remove("fa-video");
+  localStream.getVideoTracks()[0].enabled = false;
+});
+// Video Toggle
+videoToggle.addEventListener("click", (e) => {
+  if (localStream.getVideoTracks()[0].enabled) {
+    localStream.getVideoTracks()[0].enabled = false;
+    videoToggle.children[0].classList.remove("fa-video-slash");
+    videoToggle.children[0].classList.add("fa-video");
+  } else {
+    localStream.getVideoTracks()[0].enabled = true;
+    videoToggle.children[0].classList.add("fa-video-slash");
+    videoToggle.children[0].classList.remove("fa-video");
+  }
+});
 
 // handle socket events
 socket.on("joined", (allusers) => {
   createUsersHtml(allusers);
 });
-
 socket.on("offer", async ({ from, to, offer }) => {
   NotificationPlayer.loop = true;
   NotificationPlayer.volume = 0.5;
   NotificationPlayer.play();
+  caller = [from, to];
   notifyMe({ callerName: `${from}` });
-  answerButton.addEventListener("click", () => {
+  answerButton.addEventListener("click", async () => {
     NotificationPlayer.pause();
-    answerCall({ from, to, offer });
+    onCall = true;
+    const pc = PeerConnection.getInstance();
+    await pc.setRemoteDescription(offer);
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    socket.emit("answer", { from, to, answer: pc.localDescription });
+    answerButton.classList.add("d-none");
+    declineButton.classList.add("d-none");
   });
   declineButton.addEventListener("click", () => {
     NotificationPlayer.pause();
@@ -101,6 +155,12 @@ socket.on("offer", async ({ from, to, offer }) => {
   });
   answerButton.classList.remove("d-none");
   declineButton.classList.remove("d-none");
+  setTimeout(() => {
+    if (!onCall) {
+      NotificationPlayer.pause();
+      endCall();
+    }
+  }, 45000);
 });
 socket.on("answer", async ({ from, to, answer }) => {
   const pc = PeerConnection.getInstance();
@@ -126,54 +186,6 @@ socket.on("disconnected", (allusers) => {
   createUsersHtml(allusers);
 });
 
-// // Add an event listener for the beforeunload event
-window.addEventListener("beforeunload", async (event) => {
-  await socket.emit("disconnected", username.value);
-  event.preventDefault();
-});
-
-logout.addEventListener("click", async (e) => {
-  console.log("disconnect");
-  await socket.emit("disconnected", username.value);
-  logout.classList.add("d-none");
-  usernameContainer.classList.remove("d-none");
-  allusersHtml.innerHTML = "";
-  localVideoContainer.innerHTML = "";
-  videoToggle.children[0].classList.add("fa-video-slash");
-  videoToggle.children[0].classList.remove("fa-video");
-  localStream.getVideoTracks()[0].enabled = false;
-});
-
-window.addEventListener("beforeunload", async (event) => {
-  await handleUserDisconnect();
-  event.preventDefault();
-});
-// Answer Call
-const answerCall = async ({ from, to, offer }) => {
-  const pc = PeerConnection.getInstance();
-  await pc.setRemoteDescription(offer);
-  const answer = await pc.createAnswer();
-  await pc.setLocalDescription(answer);
-  socket.emit("answer", { from, to, answer: pc.localDescription });
-  answerButton.classList.add("d-none");
-  declineButton.classList.add("d-none");
-  caller = [from, to];
-};
-
-// start call method
-const startCall = async (user) => {
-  console.log("user>", { user });
-  const pc = PeerConnection.getInstance();
-  const offer = await pc.createOffer();
-  console.log("offer", { offer });
-  await pc.setLocalDescription(offer);
-  socket.emit("offer", {
-    from: username.value,
-    to: user,
-    offer: pc.localDescription,
-  });
-};
-
 const endCall = () => {
   const pc = PeerConnection.getInstance();
   if (pc) {
@@ -182,35 +194,16 @@ const endCall = () => {
     declineButton.classList.add("d-none");
     answerButton.classList.add("d-none");
     document.querySelectorAll(".remote-video").forEach((el) => el.remove());
-    console.log("call ended by ");
-  }
-};
-
-// initialize app
-const startMyVideo = async (video) => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: true,
-    });
-    console.log({ stream });
-    localStream = stream;
-    video.srcObject = stream;
-    video.muted = true;
-    video.setAttribute("playsinline", true);
-    video.setAttribute("autoplay", true);
-    video.setAttribute("muted", true);
-    videoToggle.children[0].classList.add("fa-video-slash");
-    return true;
-  } catch (error) {
-    console.log({ error });
-    return false;
+    document.querySelectorAll(".local-video").forEach((el) => el.remove());
+    caller = [];
+    onCall = false;
+    localStream.getTracks().forEach((track) => track.stop());
+    localStream = null;
   }
 };
 
 const createUsersHtml = (allusers) => {
   allusersHtml.innerHTML = "";
-
   for (const user in allusers) {
     const li = document.createElement("li");
     li.setAttribute("id", user);
@@ -219,8 +212,16 @@ const createUsersHtml = (allusers) => {
     if (user !== username.value) {
       const button = document.createElement("button");
       button.classList.add("call-btn");
-      button.addEventListener("click", (e) => {
-        startCall(user);
+      button.addEventListener("click", async () => {
+        const pc = PeerConnection.getInstance();
+        const offer = await pc.createOffer();
+        console.log("offer", { offer });
+        await pc.setLocalDescription(offer);
+        socket.emit("offer", {
+          from: username.value,
+          to: user,
+          offer: pc.localDescription,
+        });
       });
       const img = document.createElement("img");
       img.setAttribute("src", "/images/phone.png");
@@ -235,31 +236,3 @@ const createUsersHtml = (allusers) => {
     allusersHtml.appendChild(li);
   }
 };
-// Create Local Video
-const createLocalVideo = async () => {
-  try {
-    const video = document.createElement("video");
-    video.setAttribute("playsinline", true);
-    video.setAttribute("muted", true);
-    video.setAttribute("autoplay", true);
-    video.setAttribute("id", "localVideo");
-    container = document.getElementById("local-video-container");
-    container.appendChild(video);
-    return startMyVideo(video);
-  } catch (error) {
-    console.log({ error });
-  }
-};
-
-// Video Toggle
-videoToggle.addEventListener("click", (e) => {
-  if (localStream.getVideoTracks()[0].enabled) {
-    localStream.getVideoTracks()[0].enabled = false;
-    videoToggle.children[0].classList.remove("fa-video-slash");
-    videoToggle.children[0].classList.add("fa-video");
-  } else {
-    localStream.getVideoTracks()[0].enabled = true;
-    videoToggle.children[0].classList.add("fa-video-slash");
-    videoToggle.children[0].classList.remove("fa-video");
-  }
-});

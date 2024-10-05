@@ -105,7 +105,7 @@ ul li {
 .remote-video {
   flex: 1;
   width: auto;
-  min-height: 70rem;
+  min-height: 80rem;
   max-height: 50rem;
   background-color: transparent;
   background-size: cover;
@@ -198,6 +198,7 @@ ul li {
 
 #video-toggle i,
 .call-disconnect i,
+.call-answer i,
 .call-decline i {
   padding: 1rem;
   font-size: 2rem;
@@ -213,6 +214,13 @@ ul li {
 .call-disconnect i,
 .call-decline i {
   background-color: red;
+}
+.call-decline:hover,
+.call-decline:hover{
+  filter: drop-shadow(0px 0px 5px #F00);
+}
+.call-answer i {
+  background-color: green;
 }
 
 #video-toggle {
@@ -230,11 +238,16 @@ ul li {
   padding: 1rem 0;
   position: fixed;
   bottom: 4rem;
-  background: #2c2c30;
+  background: #2c2c30c4;
   justify-content: center;
   align-items: center;
   min-width: 50%;
   border-radius: 50px;
+  opacity: 0.2;
+}
+
+.widget-container:hover { 
+  opacity: 1;
 }
 
 @keyframes bounce {
@@ -333,6 +346,7 @@ button.jumping {
   }
   .widget-container{
     background: transparent;
+    opacity: 1;
   }
 }
 
