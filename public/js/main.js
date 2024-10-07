@@ -13,6 +13,7 @@ const logout = document.getElementById("logout");
 const usernameContainer = document.querySelector(".username-input");
 const localVideoContainer = document.getElementById("local-video-container");
 const remoteVideoContainer = document.getElementById("remote-video-container");
+const widgetContainer = document.getElementById("widget-container");
 
 const socket = io();
 let localStream;
@@ -55,13 +56,27 @@ const PeerConnection = (function () {
         socket.emit("icecandidate", event.candidate);
       }
     };
-
+    peerConnection.oniceconnectionstatechange = function (event) {
+      console.log(
+        "ICE connection state change:",
+        event.target.iceConnectionState
+      );
+    };
     return peerConnection;
   };
 
   return {
     getInstance: () => {
       if (!peerConnection) {
+        peerConnection = createPeerConnection();
+      }
+      return peerConnection;
+    },
+    rebuild: () => {
+      if (!peerConnection) {
+        peerConnection = createPeerConnection();
+      } else {
+        peerConnection.close();
         peerConnection = createPeerConnection();
       }
       return peerConnection;
@@ -136,6 +151,7 @@ socket.on("offer", async ({ from, to, offer }) => {
   NotificationPlayer.loop = true;
   NotificationPlayer.volume = 0.5;
   NotificationPlayer.play();
+  widgetContainer.classList.remove("d-none");
   caller = [from, to];
   notifyMe({ callerName: `${from}` });
   answerButton.addEventListener("click", async () => {
@@ -165,6 +181,7 @@ socket.on("offer", async ({ from, to, offer }) => {
 socket.on("answer", async ({ from, to, answer }) => {
   const pc = PeerConnection.getInstance();
   await pc.setRemoteDescription(answer);
+  widgetContainer.classList.remove("d-none");
   endCallBtn.classList.remove("d-none");
   socket.emit("end-call", { from, to });
   caller = [from, to];
@@ -187,18 +204,24 @@ socket.on("disconnected", (allusers) => {
 });
 
 const endCall = () => {
-  const pc = PeerConnection.getInstance();
+  const pcOld = PeerConnection.getInstance();
+  const pc = PeerConnection.rebuild();
   if (pc) {
-    pc.close();
+    console.log("pcOld",pcOld);
+    console.log("call ended with pc new",pc);
+    // Distroy and recreate peerconnection
     endCallBtn.classList.add("d-none");
     declineButton.classList.add("d-none");
     answerButton.classList.add("d-none");
+    widgetContainer.classList.add("d-none");
     document.querySelectorAll(".remote-video").forEach((el) => el.remove());
     document.querySelectorAll(".local-video").forEach((el) => el.remove());
     caller = [];
     onCall = false;
     localStream.getTracks().forEach((track) => track.stop());
     localStream = null;
+  } else {
+    console.log("call ended without pc");
   }
 };
 
