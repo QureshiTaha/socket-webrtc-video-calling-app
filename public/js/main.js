@@ -15,6 +15,10 @@ const localVideoContainer = document.getElementById("local-video-container");
 const remoteVideoContainer = document.getElementById("remote-video-container");
 const widgetContainer = document.getElementById("widget-container");
 
+const toastLiveExample = document.getElementById('liveToast')
+const liveToastTitle = document.getElementById('liveToastTitle')
+const liveToastBody = document.getElementById('liveToastBody')
+
 const socket = io();
 let localStream;
 let caller = [];
@@ -158,7 +162,7 @@ socket.on("offer", async ({ from, to, offer }) => {
     NotificationPlayer.pause();
     onCall = true;
     const pc = PeerConnection.getInstance();
-    await pc.setRemoteDescription(offer);
+    await pc.setRemoteDescription(new RTCSessionDescription(offer));
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     socket.emit("answer", { from, to, answer: pc.localDescription });
@@ -198,10 +202,23 @@ socket.on("call-ended", (caller) => {
   DisconnectedPlayer.play();
   endCall();
 });
+
 socket.on("disconnected", (allusers) => {
   console.log("disconnected", { username });
   createUsersHtml(allusers);
 });
+
+socket.on("error", (error) => {
+  console.log("error", error);
+  liveToastBody.innerText = error;
+  liveToastTitle.innerText = "Error";
+  toastBootstrap.show();  
+  alert(error);
+});
+
+socket.on("update-users", (allusers) => {
+  createUsersHtml(allusers);
+})
 
 const endCall = () => {
   const pcOld = PeerConnection.getInstance();

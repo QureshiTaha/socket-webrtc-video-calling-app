@@ -82,15 +82,15 @@ ul li {
 }
 
 .userStatus.offline {
-  background-color: #F00;
+  background-color: #f00;
 }
 
 .userStatus.online {
-  background-color: #00C100;
+  background-color: #00c100;
 }
 .userStatus.away,
 .userStatus.busy {
-  background-color: #FF0;
+  background-color: #ff0;
 }
 /* || video call container styling */
 .video-call-container {
@@ -216,8 +216,8 @@ ul li {
   background-color: red;
 }
 .call-decline:hover,
-.call-decline:hover{
-  filter: drop-shadow(0px 0px 5px #F00);
+.call-decline:hover {
+  filter: drop-shadow(0px 0px 5px #f00);
 }
 .call-answer i {
   background-color: green;
@@ -246,7 +246,7 @@ ul li {
   opacity: 0.2;
 }
 
-.widget-container:hover { 
+.widget-container:hover {
   opacity: 1;
 }
 
@@ -321,30 +321,32 @@ button.jumping {
   padding: 2rem 0;
 }
 
-
+.z-11 {
+  z-index: 11;
+}
 
 /* responsive below 1024 */
 @media screen and (max-width: 1024px) {
-  .local-video video{
+  .local-video video {
     height: 12rem;
   }
 
-  .remote-video video{
+  .remote-video video {
     width: 100vw;
     height: 100vh;
     border: unset;
     min-height: unset;
     max-height: unset;
   }
-  .remote-video{
+  .remote-video {
     max-height: unset;
   }
-  .local-video{
+  .local-video {
     bottom: unset;
     top: 1rem;
     right: 1rem;
   }
-  .widget-container{
+  .widget-container {
     background: transparent;
     opacity: 1;
   }

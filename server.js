@@ -6,14 +6,20 @@ import { dirname, join } from "path";
 
 const app = express();
 const server = createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
 const allusers = {};
 
 // /your/system/path
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // exposing public directory to outside world
-app.use(express.static("public"));
+// app.use(express.static("public"));
+app.use(express.static(join(__dirname, "public")));
 
 // handle incoming http request
 app.get("/", (req, res) => {
@@ -27,6 +33,10 @@ io.on("connection", (socket) => {
     `Someone connected to socket server and socket id is ${socket.id}`
   );
   socket.on("join-user", (username) => {
+    if (!username) {
+      socket.emit("error", { message: "Username is required." });
+      return;
+    }
     console.log(`${username} joined socket connection`);
     allusers[username] = { username, id: socket.id, status: "online" };
     io.emit("joined", allusers);
@@ -66,16 +76,13 @@ io.on("connection", (socket) => {
   });
 
   socket.on("icecandidate", (candidate) => {
-    // console.log({ candidate });
-    //broadcast to other peers
     socket.broadcast.emit("icecandidate", candidate);
   });
   socket.on("disconnected", (username) => {
     if (allusers[username]) {
       allusers[username].status = "offline";
+      console.log(`${username} disconnected`);
     }
-    console.log(username + "disconnected");
-    socket.broadcast.emit("disconnected", allusers);
   });
 });
 
